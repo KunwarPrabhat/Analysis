@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kulfi (com.kulfi.app) — Performance Telemetry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <div class="hero-top">
+        <div>
+          <h1>Kulfi Performance Report</h1>
+          <p class="subtitle" id="hero-subtitle">Loading session telemetry...</p>
+        </div>
+        <div class="hero-meta" id="hero-meta"></div>
+      </div>
+
+      <!-- Session Switcher (3 Manual Testing Sessions) -->
+      <div class="control-bar">
+        <div class="session-switcher" id="session-switcher" role="tablist" aria-label="Test Sessions"></div>
+        <div class="tab-switcher" id="tab-switcher" role="tablist" aria-label="Session Views">
+          <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true">Overview</button>
+          <button class="tab-btn" data-tab="extra" role="tab" aria-selected="false">Extra</button>
+          <button class="tab-btn" data-tab="gmemory" role="tab" aria-selected="false">GMemory</button>
+        </div>
+      </div>
+
+      <!-- Symmetrical 4x2 KPI Grid -->
+      <div class="kpi-grid" id="kpi-grid"></div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- OVERVIEW TAB -->
+    <div id="view-overview" class="tab-view active">
+      <nav class="section-nav">
+        <a href="#sec-app-memory">App Memory</a>
+        <a href="#sec-pss-bar">PSS Breakdown (Bar)</a>
+        <a href="#sec-heaps">Native vs Java Heap</a>
+        <a href="#sec-graphics-mem">Graphics Memory</a>
+        <a href="#sec-fps">FPS (Staircase)</a>
+        <a href="#sec-latency">Frame Latency (Bar)</a>
+        <a href="#sec-process">Threads &amp; Swap (Staircase)</a>
+        <a href="#sec-device-ram">Device RAM &amp; Swap</a>
+      </nav>
+
+      <section id="sec-app-memory" class="chart-card reveal">
+        <div class="card-header">
+          <div>
+            <span class="chart-type-pill">Area + Line</span>
+            <h2>1. Application Memory Consumption Over Time (RAM PSS, RSS &amp; Swap)</h2>
+            <p class="card-desc">RAM-only Proportional Set Size (<code>TOTAL PSS &minus; Swap PSS</code>), Total Resident Set Size (<code>TOTAL RSS</code>), <code>Swap PSS (zRAM)</code> from <code>dumpsys meminfo</code>, and <code>/proc/&lt;PID&gt;/status</code> VmRSS in MiB.</p>
+          </div>
+          <div class="card-stats" id="stats-app-memory"></div>
+        </div>
+        <div class="chart-legend" id="legend-app-memory"></div>
+        <div class="chart-wrap"><canvas id="chart-app-memory"></canvas></div>
+      </section>
+
+      <section id="sec-pss-bar" class="chart-card reveal">
+        <div class="card-header">
+          <div>
+            <span class="chart-type-pill">Grouped Bar Chart</span>
+            <h2>2. Memory Composition Breakdown (Mean vs. Peak PSS)</h2>
+            <p class="card-desc">Side-by-side comparison of Mean and Peak PSS across every Android memory category in MiB.</p>
+          </div>
+          <div class="card-stats" id="stats-pss-bar"></div>
+        </div>
+        <div class="chart-legend" id="legend-pss-bar"></div>
+        <div class="chart-wrap"><canvas id="chart-pss-bar"></canvas></div>
+      </section>
+
+      <section id="sec-heaps" class="chart-card reveal">
+        <div class="card-header">
+          <div>
+            <span class="chart-type-pill">Area + Line</span>
+            <h2>3. Native Heap vs. Java/Dalvik Heap Allocations</h2>
+            <p class="card-desc">Independent tracking of Native Heap (size &amp; allocated) and Dalvik/Java Heap (size &amp; allocated) in MiB.</p>
+          </div>
+          <div class="card-stats" id="stats-heaps"></div>
+        </div>
+        <div class="chart-legend" id="legend-heaps"></div>
+        <div class="chart-wrap"><canvas id="chart-heaps"></canvas></div>
+      </section>
+
+      <section id="sec-graphics-mem" class="chart-card reveal">
+        <div class="card-header">
+          <div>
+            <span class="chart-type-pill">Area + Line</span>
+            <h2>4. Graphics Memory Consumption Over Time</h2>
+            <p class="card-desc"><code>App Summary Graphics</code> alongside <code>GL mtrack</code> and <code>EGL mtrack</code> components in MiB.</p>
+          </div>
+          <div class="card-stats" id="stats-graphics-mem"></div>
+        </div>
+        <div class="chart-legend" id="legend-graphics-mem"></div>
+        <div class="chart-wrap"><canvas id="chart-graphics-mem"></canvas></div>
+      </section>
+
+      <section id="sec-fps" class="chart-card reveal">
+        <div class="card-header">
+          <div>
+            <span class="chart-type-pill">Staircase Chart</span>
+            <h2>5. Flutter SurfaceView Frame Rate (SurfaceFlinger)</h2>
+            <p class="card-desc">Step-wise FPS progression from <code>dumpsys SurfaceFlinger --latency</code> on Kulfi's <code>SurfaceView[...](BLAST)</code> layer.</p>
+          </div>
+          <div class="card-stats" id="stats-fps"></div>
+        </div>
+        <div class="chart-legend" id="legend-fps"></div>
+        <div class="chart-wrap"><canvas id="chart-fps"></canvas></div>
+      </section>
+
+      <section id="sec-latency" class="chart-card reveal">
+        <div class="card-header">
+          <div>
+            <span class="chart-type-pill">Bar Chart</span>
+            <h2>6. Frame Rendering Latency Across Active Windows (P50 / P95 / P99)</h2>
+            <p class="card-desc">Per-window frame presentation latency bars (ms) with 8.33 ms (120 Hz) and 16.67 ms (60 Hz) target budgets.</p>
+          </div>
+          <div class="card-stats" id="stats-latency"></div>
+        </div>
+        <div class="chart-legend" id="legend-latency"></div>
+        <div class="chart-wrap"><canvas id="chart-latency"></canvas></div>
+      </section>
+
+      <section id="sec-process" class="chart-card reveal">
+        <div class="card-header">
+          <div>
+            <span class="chart-type-pill">Staircase Chart</span>
+            <h2>7. Process Threads, Anonymous RSS &amp; Swap</h2>
+            <p class="card-desc">Step-function view of thread count, Anonymous RSS, File-backed RSS, and VmSwap from <code>/proc/&lt;PID&gt;/status</code>.</p>
+          </div>
+          <div class="card-stats" id="stats-process"></div>
+        </div>
+        <div class="chart-legend" id="legend-process"></div>
+        <div class="chart-wrap"><canvas id="chart-process"></canvas></div>
+      </section>
+
+      <section id="sec-device-ram" class="chart-card reveal">
+        <div class="card-header">
+          <div>
+            <span class="chart-type-pill">Area + Line</span>
+            <h2>8. Device-Wide RAM &amp; Swap Pressure</h2>
+            <p class="card-desc">System-wide Available RAM, Cached RAM, Free RAM, and Swap Used in GiB from <code>/proc/meminfo</code>.</p>
+          </div>
+          <div class="card-stats" id="stats-device-ram"></div>
+        </div>
+        <div class="chart-legend" id="legend-device-ram"></div>
+        <div class="chart-wrap"><canvas id="chart-device-ram"></canvas></div>
+      </section>
+    </div>
+
+    <!-- EXTRA TAB -->
+    <div id="view-extra" class="tab-view">
+      <div id="extra-content"></div>
+    </div>
+
+    <!-- GMEMORY TAB -->
+    <div id="view-gmemory" class="tab-view">
+      <div id="gmemory-content">
+        <div class="pending-card" style="border-color:#cbd5e1;">
+          <div class="pending-icon">&#128202;</div>
+          <h2>GMemory — Deep Graphics Attribution</h2>
+          <p>Run <code>./graphics_analysis/monitor_graphics.sh</code> and stop it to populate resource-level GL mtrack, Gralloc, ImageReader, and SurfaceFlinger graphs here.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PENDING SESSION VIEW -->
+    <div id="view-pending" class="pending-card" hidden>
+      <div class="pending-icon">&#9203;</div>
+      <h2 id="pending-title">Session Pending</h2>
+      <p id="pending-desc">This session slot is ready for your next manual testing run. Once you record and stop the session, it will appear here with its own Overview and Extra tabs.</p>
+      <div class="pending-cmd"><code>./monitor.sh --package com.kulfi.app</code></div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      Kulfi Android Performance Monitoring System &bull; Real ADB Telemetry Dashboard
+    </div>
+  </footer>
+
+  <div id="chart-tooltip" class="tooltip" hidden></div>
+
+  <script src="data.js"></script>
+  <script src="gmemory_data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
