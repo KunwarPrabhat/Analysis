@@ -2,7 +2,9 @@
   const SESSIONS_PAYLOAD = window.KULFI_SESSIONS;
   if (!SESSIONS_PAYLOAD || !SESSIONS_PAYLOAD.sessions) return;
 
-  const sessions = SESSIONS_PAYLOAD.sessions;
+  const sessions = (SESSIONS_PAYLOAD.sessions || []).filter(
+    (s) => s.slot !== "session_3" && s.status !== "pending"
+  );
   let activeSessionIdx = Math.max(0, sessions.reduce((best, s, i) => (s.status === "ready" ? i : best), 0));
   let activeTab = "overview";
 
@@ -87,15 +89,18 @@
     const pend = document.getElementById("view-pending");
 
     if (!sess || sess.status !== "ready" || !sess.data) {
-      ov.classList.remove("active");
-      ex.classList.remove("active");
+      if (ov) ov.classList.remove("active");
+      if (ex) ex.classList.remove("active");
       if (gm) gm.classList.remove("active");
-      pend.hidden = false;
-      document.getElementById("pending-title").textContent = `${sess.label} — Pending Manual Test`;
+      if (pend) {
+        pend.hidden = false;
+        const titleEl = document.getElementById("pending-title");
+        if (titleEl) titleEl.textContent = `${sess ? sess.label : "Session"} — Pending`;
+      }
       return;
     }
 
-    pend.hidden = true;
+    if (pend) pend.hidden = true;
     ov.classList.toggle("active", activeTab === "overview");
     ex.classList.toggle("active", activeTab === "extra");
     if (gm) gm.classList.toggle("active", activeTab === "gmemory");
